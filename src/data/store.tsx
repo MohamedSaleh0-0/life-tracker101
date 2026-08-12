@@ -9,6 +9,7 @@ import type {
   MetricLog,
   PeriodKey,
   Recurring,
+  ShoppingItem,
   ShoppingList,
   Transaction,
 } from "./types";
