@@ -169,13 +169,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ? l
           : {
               ...l,
-              items: l.items.map((it) =>
-                it.id !== itemId
-                  ? it
-                  : it.purchasedOn
-                    ? { ...it, purchasedOn: undefined, paidPrice: undefined }
-                    : { ...it, purchasedOn: todayISO(), paidPrice: price ?? it.estPrice },
-              ),
+              items: l.items.map((it): ShoppingItem => {
+                if (it.id !== itemId) return it;
+                if (it.purchasedOn) {
+                  const { purchasedOn: _p, paidPrice: _pp, ...rest } = it;
+                  return rest;
+                }
+                return { ...it, purchasedOn: todayISO(), paidPrice: price ?? it.estPrice };
+              }),
+
             },
       ),
     );
