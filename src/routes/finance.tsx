@@ -89,7 +89,7 @@ function FinancePage() {
           label="Net"
           value={currency(s.net)}
           tone={s.net >= 0 ? "positive" : "negative"}
-          sub={s.income ? `${Math.round((s.net / s.income) * 100)}% of income kept` : undefined}
+          sub={s.income ? `${Math.round((s.net / s.income) * 100)}% of income kept` : ""}
         />
       </div>
 
