@@ -111,7 +111,7 @@ function HabitsPage() {
                         <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} width={34} />
                         <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--surface-2)" }} />
                         {h.kind === "count" && (
-                          <ReferenceLine y={h.target} stroke="var(--muted-foreground)" strokeDasharray="4 4" />
+                          <ReferenceLine y={h.target ?? 0} stroke="var(--muted-foreground)" strokeDasharray="4 4" />
                         )}
                         <Bar dataKey="value" fill={color} radius={[3, 3, 0, 0]} />
                       </BarChart>

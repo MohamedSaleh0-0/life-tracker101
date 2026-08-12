@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as FinanceRouteImport } from './routes/finance'
+import { Route as HabitsRouteImport } from './routes/habits'
 import { Route as ListsRouteImport } from './routes/lists'
 import { Route as TransactionsRouteImport } from './routes/transactions'
 
@@ -22,6 +23,11 @@ const IndexRoute = IndexRouteImport.update({
 const FinanceRoute = FinanceRouteImport.update({
   id: '/finance',
   path: '/finance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HabitsRoute = HabitsRouteImport.update({
+  id: '/habits',
+  path: '/habits',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ListsRoute = ListsRouteImport.update({
@@ -38,12 +44,14 @@ const TransactionsRoute = TransactionsRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/finance': typeof FinanceRoute
+  '/habits': typeof HabitsRoute
   '/lists': typeof ListsRoute
   '/transactions': typeof TransactionsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/finance': typeof FinanceRoute
+  '/habits': typeof HabitsRoute
   '/lists': typeof ListsRoute
   '/transactions': typeof TransactionsRoute
 }
@@ -51,20 +59,22 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/finance': typeof FinanceRoute
+  '/habits': typeof HabitsRoute
   '/lists': typeof ListsRoute
   '/transactions': typeof TransactionsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/finance' | '/lists' | '/transactions'
+  fullPaths: '/' | '/finance' | '/habits' | '/lists' | '/transactions'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/finance' | '/lists' | '/transactions'
-  id: '__root__' | '/' | '/finance' | '/lists' | '/transactions'
+  to: '/' | '/finance' | '/habits' | '/lists' | '/transactions'
+  id: '__root__' | '/' | '/finance' | '/habits' | '/lists' | '/transactions'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   FinanceRoute: typeof FinanceRoute
+  HabitsRoute: typeof HabitsRoute
   ListsRoute: typeof ListsRoute
   TransactionsRoute: typeof TransactionsRoute
 }
@@ -83,6 +93,13 @@ declare module '@tanstack/react-router' {
       path: '/finance'
       fullPath: '/finance'
       preLoaderRoute: typeof FinanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/habits': {
+      id: '/habits'
+      path: '/habits'
+      fullPath: '/habits'
+      preLoaderRoute: typeof HabitsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/lists': {
@@ -105,6 +122,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   FinanceRoute: FinanceRoute,
+  HabitsRoute: HabitsRoute,
   ListsRoute: ListsRoute,
   TransactionsRoute: TransactionsRoute,
 }
