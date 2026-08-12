@@ -65,7 +65,7 @@ function buildTransactions(): Transaction[] {
         amount: 4200,
         accountId: "acc-checking",
         category: "Salary",
-        note: incomeCatalog[0][1],
+        note: incomeCatalog[0]![1],
       });
       txs.push({
         id: `tx-${n++}`,
@@ -95,7 +95,7 @@ function buildTransactions(): Transaction[] {
         amount: 420 + Math.round(rand() * 520),
         accountId: "acc-checking",
         category: "Freelance",
-        note: incomeCatalog[1][1],
+        note: incomeCatalog[1]![1],
       });
     }
     if (day.getDate() === 28) {
@@ -106,7 +106,7 @@ function buildTransactions(): Transaction[] {
         amount: 9 + Math.round(rand() * 12),
         accountId: "acc-savings",
         category: "Interest",
-        note: incomeCatalog[2][1],
+        note: incomeCatalog[2]![1],
       });
     }
 
