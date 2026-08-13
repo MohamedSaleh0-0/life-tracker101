@@ -64,9 +64,9 @@ export interface Metric {
   id: string;
   name: string;
   kind: MetricKind;
-  unit?: string;
-  targetMin?: number;
-  targetMax?: number;
+  unit?: string | undefined;
+  targetMin?: number | undefined;
+  targetMax?: number | undefined;
 }
 
 export interface MetricLog {
@@ -80,8 +80,8 @@ export interface ShoppingItem {
   name: string;
   qty: number;
   estPrice: number;
-  dueDate?: string;
-  place?: string;
+  dueDate?: string | undefined;
+  place?: string | undefined;
   purchasedOn?: string;
   paidPrice?: number;
 }
