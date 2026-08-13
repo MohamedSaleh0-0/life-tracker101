@@ -3,6 +3,8 @@ import { format } from "date-fns";
 import * as seed from "./seed";
 import type {
   Account,
+  CategoryDef,
+  Settings,
   Habit,
   HabitLog,
   Metric,
@@ -11,6 +13,7 @@ import type {
   Recurring,
   ShoppingItem,
   ShoppingList,
+  ListAccent,
   Transaction,
 } from "./types";
 
@@ -18,10 +21,13 @@ export type ModalState =
   | { kind: "none" }
   | { kind: "chooser" }
   | { kind: "transaction"; type: "expense" | "income" | "transfer"; txId?: string }
-  | { kind: "logHabit"; habitId: string }
-  | { kind: "logMetric"; metricId: string }
+  | { kind: "logHabit"; habitId: string; pick?: boolean }
+  | { kind: "logMetric"; metricId: string; pick?: boolean }
   | { kind: "newHabit" }
-  | { kind: "newMetric" };
+  | { kind: "newMetric" }
+  | { kind: "editHabit"; habitId: string }
+  | { kind: "editMetric"; metricId: string }
+  | { kind: "listItem"; listId: string; itemId?: string };
 
 interface Store {
   accounts: Account[];
@@ -32,6 +38,7 @@ interface Store {
   metrics: Metric[];
   metricLogs: MetricLog[];
   lists: ShoppingList[];
+  settings: Settings;
   period: PeriodKey;
   customRange: { from: string; to: string };
   setPeriod: (p: PeriodKey) => void;
@@ -45,13 +52,51 @@ interface Store {
   logHabit: (habitId: string, date: string, value: number) => void;
   clearHabit: (habitId: string, date: string) => void;
   addHabit: (h: Omit<Habit, "id">) => void;
+  updateHabit: (id: string, patch: Partial<Habit>) => void;
+  deleteHabit: (id: string) => void;
   logMetric: (metricId: string, date: string, value: number | string) => void;
   clearMetric: (metricId: string, date: string) => void;
   addMetric: (m: Omit<Metric, "id">) => void;
+  updateMetric: (id: string, patch: Partial<Metric>) => void;
+  deleteMetric: (id: string) => void;
   toggleItemPurchased: (listId: string, itemId: string, price?: number) => void;
-  addListItem: (listId: string, name: string, qty: number, estPrice: number) => void;
+  addListItem: (listId: string, item: Omit<ShoppingItem, "id">) => void;
+  updateListItem: (listId: string, itemId: string, patch: Partial<ShoppingItem>) => void;
+  deleteListItem: (listId: string, itemId: string) => void;
   addList: (name: string) => void;
+  updateList: (listId: string, patch: Partial<Omit<ShoppingList, "items">>) => void;
+  deleteList: (listId: string) => void;
+  deleteTransaction: (id: string) => void;
+  updateAccount: (id: string, patch: Partial<Account>) => void;
+  updateSettings: (patch: Partial<Settings>) => void;
+  addCategory: (type: "expense" | "income", name: string) => void;
+  removeCategory: (type: "expense" | "income", name: string) => void;
+  addSubcategory: (type: "expense" | "income", cat: string, sub: string) => void;
+  removeSubcategory: (type: "expense" | "income", cat: string, sub: string) => void;
 }
+
+export const defaultSettings: Settings = {
+  expenseCategories: [
+    { name: "Groceries", subs: ["Fresh", "Pantry", "Household"] },
+    { name: "Dining", subs: ["Junk", "Coffee", "Restaurant"] },
+    { name: "Transport", subs: ["Fuel", "Transit", "Rideshare"] },
+    { name: "Housing", subs: ["Rent", "Utilities", "Repairs"] },
+    { name: "Health", subs: ["Pharmacy", "Gym", "Doctor"] },
+    { name: "Subscriptions", subs: ["Streaming", "Software"] },
+    { name: "Shopping", subs: ["Clothes", "Tech", "Home"] },
+    { name: "Entertainment", subs: ["Events", "Games"] },
+  ],
+  incomeCategories: [
+    { name: "Salary", subs: [] },
+    { name: "Freelance", subs: ["Design", "Consulting"] },
+    { name: "Interest", subs: [] },
+    { name: "Gift", subs: [] },
+    { name: "Refund", subs: [] },
+  ],
+  heatmapWeeks: 12,
+  metricTrendDays: 60,
+  showConsistencyOnToday: true,
+};
 
 const StoreContext = createContext<Store | null>(null);
 
@@ -67,6 +112,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [metrics, setMetrics] = useState<Metric[]>(seed.metrics);
   const [metricLogs, setMetricLogs] = useState<MetricLog[]>(seed.metricLogs);
   const [lists, setLists] = useState<ShoppingList[]>(seed.shoppingLists);
+  const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [period, setPeriod] = useState<PeriodKey>("month");
   const [customRange, setCustomRange] = useState({ from: todayISO(), to: todayISO() });
   const [modal, setModal] = useState<ModalState>({ kind: "none" });
@@ -146,6 +192,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setHabits((prev) => [...prev, { ...h, id: uid("h") }]);
   }, []);
 
+  const updateHabit = useCallback((id: string, patch: Partial<Habit>) => {
+    setHabits((prev) => prev.map((h) => (h.id === id ? { ...h, ...patch } : h)));
+  }, []);
+
+  const deleteHabit = useCallback((id: string) => {
+    setHabits((prev) => prev.filter((h) => h.id !== id));
+    setHabitLogs((prev) => prev.filter((l) => l.habitId !== id));
+  }, []);
+
   const logMetric = useCallback((metricId: string, date: string, value: number | string) => {
     setMetricLogs((prev) => {
       const exists = prev.some((l) => l.metricId === metricId && l.date === date);
@@ -161,6 +216,71 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addMetric = useCallback((m: Omit<Metric, "id">) => {
     setMetrics((prev) => [...prev, { ...m, id: uid("m") }]);
+  }, []);
+
+  const updateMetric = useCallback((id: string, patch: Partial<Metric>) => {
+    setMetrics((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
+  }, []);
+
+  const deleteMetric = useCallback((id: string) => {
+    setMetrics((prev) => prev.filter((m) => m.id !== id));
+    setMetricLogs((prev) => prev.filter((l) => l.metricId !== id));
+  }, []);
+
+  const deleteTransaction = useCallback(
+    (id: string) => {
+      setTransactions((prev) => {
+        const old = prev.find((t) => t.id === id);
+        if (old) applyBalance(old, -1);
+        return prev.filter((t) => t.id !== id);
+      });
+    },
+    [applyBalance],
+  );
+
+  const updateAccount = useCallback((id: string, patch: Partial<Account>) => {
+    setAccounts((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
+  }, []);
+
+  const updateSettings = useCallback((patch: Partial<Settings>) => {
+    setSettings((prev) => ({ ...prev, ...patch }));
+  }, []);
+
+  const catKey = (type: "expense" | "income") =>
+    type === "income" ? ("incomeCategories" as const) : ("expenseCategories" as const);
+
+  const addCategory = useCallback((type: "expense" | "income", name: string) => {
+    const key = catKey(type);
+    setSettings((prev) =>
+      prev[key].some((c) => c.name.toLowerCase() === name.toLowerCase())
+        ? prev
+        : { ...prev, [key]: [...prev[key], { name, subs: [] } as CategoryDef] },
+    );
+  }, []);
+
+  const removeCategory = useCallback((type: "expense" | "income", name: string) => {
+    const key = catKey(type);
+    setSettings((prev) => ({ ...prev, [key]: prev[key].filter((c) => c.name !== name) }));
+  }, []);
+
+  const addSubcategory = useCallback((type: "expense" | "income", cat: string, sub: string) => {
+    const key = catKey(type);
+    setSettings((prev) => ({
+      ...prev,
+      [key]: prev[key].map((c) =>
+        c.name !== cat || c.subs.includes(sub) ? c : { ...c, subs: [...c.subs, sub] },
+      ),
+    }));
+  }, []);
+
+  const removeSubcategory = useCallback((type: "expense" | "income", cat: string, sub: string) => {
+    const key = catKey(type);
+    setSettings((prev) => ({
+      ...prev,
+      [key]: prev[key].map((c) =>
+        c.name !== cat ? c : { ...c, subs: c.subs.filter((s) => s !== sub) },
+      ),
+    }));
   }, []);
 
   const toggleItemPurchased = useCallback((listId: string, itemId: string, price?: number) => {
@@ -184,19 +304,48 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  const addListItem = useCallback(
-    (listId: string, name: string, qty: number, estPrice: number) => {
+  const addListItem = useCallback((listId: string, item: Omit<ShoppingItem, "id">) => {
+    setLists((prev) =>
+      prev.map((l) =>
+        l.id !== listId ? l : { ...l, items: [...l.items, { ...item, id: uid("si") }] },
+      ),
+    );
+  }, []);
+
+  const updateListItem = useCallback(
+    (listId: string, itemId: string, patch: Partial<ShoppingItem>) => {
       setLists((prev) =>
         prev.map((l) =>
-          l.id !== listId ? l : { ...l, items: [...l.items, { id: uid("si"), name, qty, estPrice }] },
+          l.id !== listId
+            ? l
+            : { ...l, items: l.items.map((it) => (it.id === itemId ? { ...it, ...patch } : it)) },
         ),
       );
     },
     [],
   );
 
+  const deleteListItem = useCallback((listId: string, itemId: string) => {
+    setLists((prev) =>
+      prev.map((l) => (l.id !== listId ? l : { ...l, items: l.items.filter((it) => it.id !== itemId) })),
+    );
+  }, []);
+
+  const accents: ListAccent[] = ["finance", "habit", "metric", "positive", "negative"];
+
   const addList = useCallback((name: string) => {
-    setLists((prev) => [...prev, { id: uid("list"), name, items: [] }]);
+    setLists((prev) => [
+      ...prev,
+      { id: uid("list"), name, accent: accents[prev.length % accents.length]!, items: [] },
+    ]);
+  }, []);
+
+  const updateList = useCallback((listId: string, patch: Partial<Omit<ShoppingList, "items">>) => {
+    setLists((prev) => prev.map((l) => (l.id === listId ? { ...l, ...patch } : l)));
+  }, []);
+
+  const deleteList = useCallback((listId: string) => {
+    setLists((prev) => prev.filter((l) => l.id !== listId));
   }, []);
 
   const value = useMemo<Store>(
@@ -222,12 +371,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       logHabit,
       clearHabit,
       addHabit,
+      updateHabit,
+      deleteHabit,
       logMetric,
       clearMetric,
       addMetric,
+      updateMetric,
+      deleteMetric,
       toggleItemPurchased,
       addListItem,
+      updateListItem,
+      deleteListItem,
       addList,
+      updateList,
+      deleteList,
+      deleteTransaction,
+      updateAccount,
+      settings,
+      updateSettings,
+      addCategory,
+      removeCategory,
+      addSubcategory,
+      removeSubcategory,
     }),
     [
       accounts,
@@ -247,12 +412,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       logHabit,
       clearHabit,
       addHabit,
+      updateHabit,
+      deleteHabit,
       logMetric,
       clearMetric,
       addMetric,
+      updateMetric,
+      deleteMetric,
       toggleItemPurchased,
       addListItem,
+      updateListItem,
+      deleteListItem,
       addList,
+      updateList,
+      deleteList,
+      deleteTransaction,
+      updateAccount,
+      settings,
+      updateSettings,
+      addCategory,
+      removeCategory,
+      addSubcategory,
+      removeSubcategory,
     ],
   );
 

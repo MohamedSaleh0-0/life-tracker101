@@ -7,6 +7,7 @@ import {
   ListChecks,
   Plus,
   Receipt,
+  Settings,
   ShoppingCart,
   Wallet,
 } from "lucide-react";
@@ -25,6 +26,7 @@ const nav = [
   { to: "/lists", label: "Lists", icon: ShoppingCart },
   { to: "/habits", label: "Habits", icon: ListChecks },
   { to: "/metrics", label: "Metrics", icon: LineChart },
+  { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
 const periods: Array<{ key: PeriodKey; label: string }> = [

@@ -45,7 +45,7 @@ function TransactionsPage() {
         if (account !== "all" && t.accountId !== account && t.toAccountId !== account) return false;
         if (scoped && !inRange(t.date, range)) return false;
         if (q) {
-          const hay = `${t.note ?? ""} ${t.category} ${t.amount}`.toLowerCase();
+          const hay = `${t.name ?? ""} ${t.note ?? ""} ${t.category} ${t.subcategory ?? ""} ${t.amount}`.toLowerCase();
           if (!hay.includes(q.toLowerCase())) return false;
         }
         return true;
@@ -76,7 +76,7 @@ function TransactionsPage() {
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search notes, categories, amounts"
+            placeholder="Search names, notes, categories, amounts"
             className="pl-8"
           />
         </div>
@@ -139,9 +139,10 @@ function TransactionsPage() {
                       }}
                     />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm">{t.note ?? t.category}</div>
+                      <div className="truncate text-sm">{t.name ?? t.note ?? t.category}</div>
                       <div className="text-xs text-muted-foreground">
-                        {t.category} · {accName(t.accountId)}
+                        {t.category}
+                        {t.subcategory ? ` / ${t.subcategory}` : ""} · {accName(t.accountId)}
                         {t.toAccountId ? ` → ${accName(t.toAccountId)}` : ""}
                       </div>
                     </div>

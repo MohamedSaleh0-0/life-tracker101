@@ -66,9 +66,9 @@ function TodayPage() {
     .sort((a, b) => (a.dueDate < b.dueDate ? -1 : 1))
     .slice(0, 4);
 
-  const activeList = lists[0];
-  const pending = activeList?.items.filter((i) => !i.purchasedOn) ?? [];
-  const pendingTotal = pending.reduce((s, i) => s + i.estPrice * i.qty, 0);
+  const listAccents = ["finance", "habit", "metric", "positive", "negative"] as const;
+  const pendingAll = lists.flatMap((l) => l.items.filter((i) => !i.purchasedOn));
+  const pendingTotal = pendingAll.reduce((s, i) => s + i.estPrice * i.qty, 0);
 
   const todayTx = transactions.filter((t) => t.date === iso);
 
@@ -146,6 +146,7 @@ function TodayPage() {
         </Panel>
       </div>
 
+      {store.settings.showConsistencyOnToday && (
       <Panel
         title="Consistency — last 30 days"
         hint="Share of scheduled habits completed each day"
@@ -177,6 +178,7 @@ function TodayPage() {
           <span>today</span>
         </div>
       </Panel>
+      )}
 
       <div className="grid gap-4 xl:grid-cols-3">
         <Panel
@@ -225,25 +227,63 @@ function TodayPage() {
         </Panel>
 
         <Panel
-          title={activeList?.name ?? "Shopping"}
-          hint={`${pending.length} pending · est. ${currency2(pendingTotal)}`}
+          title="Shopping lists"
+          hint={`${lists.length} lists · ${pendingAll.length} pending · est. ${currency2(pendingTotal)}`}
           action={
             <Link to="/lists" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-              Lists <ArrowUpRight className="size-3.5" />
+              All lists <ArrowUpRight className="size-3.5" />
             </Link>
           }
-          bodyClassName="space-y-1.5"
+          bodyClassName="space-y-3"
         >
-          {pending.slice(0, 6).map((it) => (
-            <div key={it.id} className="flex items-center justify-between text-sm">
-              <span className="truncate text-foreground/90">
-                {it.qty > 1 && <span className="num mr-1 text-muted-foreground">{it.qty}×</span>}
-                {it.name}
-              </span>
-              <span className="num text-xs text-muted-foreground">{currency2(it.estPrice * it.qty)}</span>
-            </div>
-          ))}
-          {!pending.length && <p className="text-sm text-muted-foreground">Nothing pending.</p>}
+          {lists.map((list, index) => {
+            const color = `var(--${list.accent ?? listAccents[index % listAccents.length]})`;
+            const items = list.items.filter((i) => !i.purchasedOn);
+            const est = items.reduce((sum, i) => sum + i.estPrice * i.qty, 0);
+            return (
+              <div
+                key={list.id}
+                className="rounded-md border bg-surface px-3 py-2"
+                style={{ borderColor: `color-mix(in oklab, ${color} 40%, var(--border))` }}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-2 text-sm font-medium">
+                    <span className="size-2 rounded-full" style={{ background: color }} />
+                    {list.name}
+                  </span>
+                  <span className="num text-[11px] text-muted-foreground">
+                    {items.length} · {currency2(est)}
+                  </span>
+                </div>
+                <div className="mt-1.5 space-y-1">
+                  {items.slice(0, 4).map((it) => (
+                    <button
+                      key={it.id}
+                      onClick={() => store.toggleItemPurchased(list.id, it.id)}
+                      className="flex w-full items-center justify-between gap-2 text-left text-xs text-foreground/90 hover:text-foreground"
+                    >
+                      <span className="truncate">
+                        {it.qty > 1 && <span className="num mr-1 text-muted-foreground">{it.qty}×</span>}
+                        {it.name}
+                        {it.place && <span className="text-muted-foreground"> · {it.place}</span>}
+                      </span>
+                      <span className="num text-muted-foreground">
+                        {currency2(it.estPrice * it.qty)}
+                      </span>
+                    </button>
+                  ))}
+                  {items.length > 4 && (
+                    <span className="text-[11px] text-muted-foreground">
+                      +{items.length - 4} more
+                    </span>
+                  )}
+                  {!items.length && (
+                    <span className="text-[11px] text-muted-foreground">Nothing pending.</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </Panel>
       </div>
     </div>
