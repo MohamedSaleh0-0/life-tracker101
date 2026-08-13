@@ -17,6 +17,8 @@ export interface Transaction {
   accountId: string;
   toAccountId?: string;
   category: string;
+  subcategory?: string;
+  name?: string;
   note?: string;
 }
 
@@ -78,14 +80,32 @@ export interface ShoppingItem {
   name: string;
   qty: number;
   estPrice: number;
+  dueDate?: string;
+  place?: string;
   purchasedOn?: string;
   paidPrice?: number;
 }
 
+export type ListAccent = "finance" | "habit" | "metric" | "negative" | "positive";
+
 export interface ShoppingList {
   id: string;
   name: string;
+  accent?: ListAccent;
   items: ShoppingItem[];
+}
+
+export interface CategoryDef {
+  name: string;
+  subs: string[];
+}
+
+export interface Settings {
+  expenseCategories: CategoryDef[];
+  incomeCategories: CategoryDef[];
+  heatmapWeeks: number;
+  metricTrendDays: number;
+  showConsistencyOnToday: boolean;
 }
 
 export type PeriodKey = "today" | "week" | "month" | "year" | "custom";
