@@ -1,5 +1,15 @@
 import { useEffect, useState } from "react";
-import { ArrowLeftRight, Check, ListChecks, LineChart, Minus, Plus, TrendingDown, TrendingUp } from "lucide-react";
+import {
+  ArrowLeftRight,
+  Check,
+  LineChart,
+  ListChecks,
+  Minus,
+  Plus,
+  Trash2,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -23,18 +33,6 @@ import { cn } from "@/lib/utils";
 import { todayISO, useStore } from "@/data/store";
 import { logFor, metricLogFor, minutesToTime, timeToMinutes } from "@/data/selectors";
 import type { HabitKind, MetricKind } from "@/data/types";
-
-const expenseCategories = [
-  "Groceries",
-  "Dining",
-  "Transport",
-  "Housing",
-  "Health",
-  "Subscriptions",
-  "Shopping",
-  "Entertainment",
-];
-const incomeCategories = ["Salary", "Freelance", "Interest", "Gift", "Refund"];
 
 function Chooser() {
   const { openModal, habits, metrics } = useStore();
@@ -65,14 +63,14 @@ function Chooser() {
       desc: "Check off today",
       icon: ListChecks,
       color: "var(--habit)",
-      onClick: () => openModal({ kind: "logHabit", habitId: habits[0]?.id ?? "" }),
+      onClick: () => openModal({ kind: "logHabit", habitId: habits[0]?.id ?? "", pick: true }),
     },
     {
       label: "Metric",
       desc: "Log a value",
       icon: LineChart,
       color: "var(--metric)",
-      onClick: () => openModal({ kind: "logMetric", metricId: metrics[0]?.id ?? "" }),
+      onClick: () => openModal({ kind: "logMetric", metricId: metrics[0]?.id ?? "", pick: true }),
     },
   ];
   return (
@@ -112,17 +110,23 @@ function TransactionModal({
   type: "expense" | "income" | "transfer";
   txId?: string;
 }) {
-  const { accounts, transactions, addTransaction, updateTransaction, closeModal } = useStore();
+  const { accounts, transactions, settings, addTransaction, updateTransaction, deleteTransaction, closeModal } =
+    useStore();
   const existing = txId ? transactions.find((t) => t.id === txId) : undefined;
   const [kind, setKind] = useState(type);
   const [amount, setAmount] = useState(existing ? String(existing.amount) : "");
   const [accountId, setAccountId] = useState(existing?.accountId ?? accounts[0]?.id ?? "");
   const [toAccountId, setToAccountId] = useState(existing?.toAccountId ?? accounts[1]?.id ?? "");
-  const [category, setCategory] = useState(existing?.category ?? "Groceries");
+  const [category, setCategory] = useState(
+    existing?.category ?? settings.expenseCategories[0]?.name ?? "Groceries",
+  );
+  const [subcategory, setSubcategory] = useState(existing?.subcategory ?? "");
   const [date, setDate] = useState(existing?.date ?? todayISO());
+  const [name, setName] = useState(existing?.name ?? "");
   const [note, setNote] = useState(existing?.note ?? "");
 
-  const cats = kind === "income" ? incomeCategories : expenseCategories;
+  const cats = kind === "income" ? settings.incomeCategories : settings.expenseCategories;
+  const subs = cats.find((c) => c.name === category)?.subs ?? [];
   const valid = Number(amount) > 0 && accountId && (kind !== "transfer" || toAccountId !== accountId);
 
   const submit = () => {
@@ -132,7 +136,9 @@ function TransactionModal({
       amount: Math.round(Number(amount) * 100) / 100,
       accountId,
       category: kind === "transfer" ? "Transfer" : category,
+      ...(kind !== "transfer" && subcategory ? { subcategory } : {}),
       ...(kind === "transfer" ? { toAccountId } : {}),
+      ...(name.trim() ? { name: name.trim() } : {}),
       ...(note ? { note } : {}),
     };
     if (existing) updateTransaction(existing.id, payload);
@@ -222,8 +228,8 @@ function TransactionModal({
                 </SelectTrigger>
                 <SelectContent>
                   {cats.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
+                    <SelectItem key={c.name} value={c.name}>
+                      {c.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -242,19 +248,35 @@ function TransactionModal({
         </div>
       </div>
 
-      <DialogFooter>
-        <Button variant="ghost" onClick={closeModal}>
-          Cancel
-        </Button>
-        <Button disabled={!valid} onClick={submit}>
-          {existing ? "Save changes" : "Log it"}
-        </Button>
+      <DialogFooter className="sm:justify-between">
+        {existing ? (
+          <Button
+            variant="ghost"
+            className="text-negative"
+            onClick={() => {
+              deleteTransaction(existing.id);
+              closeModal();
+            }}
+          >
+            <Trash2 className="size-4" /> Delete
+          </Button>
+        ) : (
+          <span />
+        )}
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={closeModal}>
+            Cancel
+          </Button>
+          <Button disabled={!valid} onClick={submit}>
+            {existing ? "Save changes" : "Log it"}
+          </Button>
+        </div>
       </DialogFooter>
     </>
   );
 }
 
-function LogHabitModal({ habitId }: { habitId: string }) {
+function LogHabitModal({ habitId, pick }: { habitId: string; pick?: boolean }) {
   const { habits, habitLogs, logHabit, clearHabit, closeModal, openModal } = useStore();
   const [id, setId] = useState(habitId);
   const habit = habits.find((h) => h.id === id) ?? habits[0];
@@ -278,6 +300,7 @@ function LogHabitModal({ habitId }: { habitId: string }) {
       </DialogHeader>
 
       <div className="space-y-3">
+        {pick && (
         <div className="space-y-1.5">
           <Label className="label-xs">Habit</Label>
           <Select value={id} onValueChange={setId}>
@@ -293,6 +316,8 @@ function LogHabitModal({ habitId }: { habitId: string }) {
             </SelectContent>
           </Select>
         </div>
+        )}
+        {!pick && <p className="text-sm font-medium">{habit.name}</p>}
 
         {habit.kind === "bool" ? (
           <div className="grid grid-cols-2 gap-2">
@@ -356,9 +381,19 @@ function LogHabitModal({ habitId }: { habitId: string }) {
       </div>
 
       <DialogFooter className="sm:justify-between">
-        <Button variant="ghost" size="sm" onClick={() => openModal({ kind: "newHabit" })}>
-          New habit
-        </Button>
+        {pick ? (
+          <Button variant="ghost" size="sm" onClick={() => openModal({ kind: "newHabit" })}>
+            New habit
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => openModal({ kind: "editHabit", habitId: habit.id })}
+          >
+            Edit habit
+          </Button>
+        )}
         <div className="flex gap-2">
           {existing && (
             <Button
@@ -385,7 +420,7 @@ function LogHabitModal({ habitId }: { habitId: string }) {
   );
 }
 
-function LogMetricModal({ metricId }: { metricId: string }) {
+function LogMetricModal({ metricId, pick }: { metricId: string; pick?: boolean }) {
   const { metrics, metricLogs, logMetric, clearMetric, closeModal, openModal } = useStore();
   const [id, setId] = useState(metricId);
   const metric = metrics.find((m) => m.id === id) ?? metrics[0];
@@ -427,6 +462,7 @@ function LogMetricModal({ metricId }: { metricId: string }) {
       </DialogHeader>
 
       <div className="space-y-3">
+        {pick && (
         <div className="space-y-1.5">
           <Label className="label-xs">Metric</Label>
           <Select value={id} onValueChange={setId}>
@@ -442,6 +478,8 @@ function LogMetricModal({ metricId }: { metricId: string }) {
             </SelectContent>
           </Select>
         </div>
+        )}
+        {!pick && <p className="text-sm font-medium">{metric.name}</p>}
 
         <div className="space-y-1.5">
           <Label className="label-xs">Value</Label>
@@ -476,9 +514,19 @@ function LogMetricModal({ metricId }: { metricId: string }) {
       </div>
 
       <DialogFooter className="sm:justify-between">
-        <Button variant="ghost" size="sm" onClick={() => openModal({ kind: "newMetric" })}>
-          New metric
-        </Button>
+        {pick ? (
+          <Button variant="ghost" size="sm" onClick={() => openModal({ kind: "newMetric" })}>
+            New metric
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => openModal({ kind: "editMetric", metricId: metric.id })}
+          >
+            Edit metric
+          </Button>
+        )}
         <div className="flex gap-2">
           {existing && (
             <Button
@@ -794,6 +842,300 @@ function NewMetricModal() {
   );
 }
 
+function EditHabitModal({ habitId }: { habitId: string }) {
+  const { habits, updateHabit, deleteHabit, closeModal } = useStore();
+  const habit = habits.find((h) => h.id === habitId);
+  const [name, setName] = useState(habit?.name ?? "");
+  const [target, setTarget] = useState(String(habit?.target ?? ""));
+  const [unit, setUnit] = useState(habit?.unit ?? "");
+  const [accent, setAccent] = useState(habit?.accent ?? "habit");
+  const [schedType, setSchedType] = useState(habit?.schedule.type ?? "daily");
+  const [days, setDays] = useState<number[]>(habit?.schedule.days ?? [1, 3, 5]);
+  const [times, setTimes] = useState(String(habit?.schedule.times ?? 4));
+
+  if (!habit) return null;
+
+  const save = () => {
+    updateHabit(habit.id, {
+      name: name.trim() || habit.name,
+      accent,
+      ...(habit.kind === "count" ? { target: Number(target) || 1, unit } : {}),
+      schedule:
+        schedType === "weekdays"
+          ? { type: "weekdays", days }
+          : schedType === "timesPerWeek"
+            ? { type: "timesPerWeek", times: Number(times) || 1 }
+            : { type: "daily" },
+    });
+    closeModal();
+  };
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>Edit habit</DialogTitle>
+        <DialogDescription>Changes apply to this habit only.</DialogDescription>
+      </DialogHeader>
+
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <Label className="label-xs">Name</Label>
+          <Input value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        {habit.kind === "count" && (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="label-xs">Target</Label>
+              <Input value={target} onChange={(e) => setTarget(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="label-xs">Unit</Label>
+              <Input value={unit} onChange={(e) => setUnit(e.target.value)} />
+            </div>
+          </div>
+        )}
+        <div className="space-y-1.5">
+          <Label className="label-xs">Accent</Label>
+          <div className="flex gap-2">
+            {(["habit", "metric", "finance"] as const).map((a) => (
+              <button
+                key={a}
+                onClick={() => setAccent(a)}
+                className={cn(
+                  "size-8 rounded-full border-2",
+                  accent === a ? "border-foreground" : "border-transparent",
+                )}
+                style={{ background: `var(--${a})` }}
+                aria-label={a}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="label-xs">Schedule</Label>
+          <div className="grid gap-2">
+            {(
+              [
+                ["daily", "Every day"],
+                ["weekdays", "Specific weekdays"],
+                ["timesPerWeek", "N times per week"],
+              ] as const
+            ).map(([k, label]) => (
+              <button
+                key={k}
+                onClick={() => setSchedType(k)}
+                className={cn(
+                  "rounded-md border px-3 py-2 text-left text-sm",
+                  schedType === k ? "border-habit bg-habit/10" : "border-border bg-surface",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {schedType === "weekdays" && (
+            <div className="flex gap-1.5 pt-1">
+              {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+                <button
+                  key={i}
+                  onClick={() =>
+                    setDays((prev) => (prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]))
+                  }
+                  className={cn(
+                    "size-9 rounded-md border text-xs",
+                    days.includes(i) ? "border-habit bg-habit/15 text-habit" : "border-border",
+                  )}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+          )}
+          {schedType === "timesPerWeek" && (
+            <Input className="mt-1" value={times} onChange={(e) => setTimes(e.target.value)} />
+          )}
+        </div>
+      </div>
+
+      <DialogFooter className="sm:justify-between">
+        <Button
+          variant="ghost"
+          className="text-negative"
+          onClick={() => {
+            deleteHabit(habit.id);
+            closeModal();
+          }}
+        >
+          <Trash2 className="size-4" /> Delete
+        </Button>
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={closeModal}>
+            Cancel
+          </Button>
+          <Button onClick={save}>Save changes</Button>
+        </div>
+      </DialogFooter>
+    </>
+  );
+}
+
+function EditMetricModal({ metricId }: { metricId: string }) {
+  const { metrics, updateMetric, deleteMetric, closeModal } = useStore();
+  const metric = metrics.find((m) => m.id === metricId);
+  const [name, setName] = useState(metric?.name ?? "");
+  const [unit, setUnit] = useState(metric?.unit ?? "");
+  const [min, setMin] = useState(metric?.targetMin !== undefined ? String(metric.targetMin) : "");
+  const [max, setMax] = useState(metric?.targetMax !== undefined ? String(metric.targetMax) : "");
+
+  if (!metric) return null;
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>Edit metric</DialogTitle>
+        <DialogDescription>Changes apply to this metric only.</DialogDescription>
+      </DialogHeader>
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <Label className="label-xs">Name</Label>
+          <Input value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        {metric.kind === "number" && (
+          <div className="space-y-1.5">
+            <Label className="label-xs">Unit</Label>
+            <Input value={unit} onChange={(e) => setUnit(e.target.value)} />
+          </div>
+        )}
+        {metric.kind !== "text" && (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="label-xs">Target min</Label>
+              <Input value={min} onChange={(e) => setMin(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="label-xs">Target max</Label>
+              <Input value={max} onChange={(e) => setMax(e.target.value)} />
+            </div>
+          </div>
+        )}
+      </div>
+      <DialogFooter className="sm:justify-between">
+        <Button
+          variant="ghost"
+          className="text-negative"
+          onClick={() => {
+            deleteMetric(metric.id);
+            closeModal();
+          }}
+        >
+          <Trash2 className="size-4" /> Delete
+        </Button>
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={closeModal}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => {
+              updateMetric(metric.id, {
+                name: name.trim() || metric.name,
+                unit,
+                targetMin: min === "" ? undefined : Number(min),
+                targetMax: max === "" ? undefined : Number(max),
+              });
+              closeModal();
+            }}
+          >
+            Save changes
+          </Button>
+        </div>
+      </DialogFooter>
+    </>
+  );
+}
+
+function ListItemModal({ listId, itemId }: { listId: string; itemId?: string }) {
+  const { lists, addListItem, updateListItem, deleteListItem, closeModal } = useStore();
+  const list = lists.find((l) => l.id === listId);
+  const item = itemId ? list?.items.find((i) => i.id === itemId) : undefined;
+  const [name, setName] = useState(item?.name ?? "");
+  const [qty, setQty] = useState(String(item?.qty ?? 1));
+  const [price, setPrice] = useState(String(item?.estPrice ?? ""));
+  const [due, setDue] = useState(item?.dueDate ?? "");
+  const [place, setPlace] = useState(item?.place ?? "");
+
+  if (!list) return null;
+
+  const save = () => {
+    const payload = {
+      name: name.trim(),
+      qty: Number(qty) || 1,
+      estPrice: Number(price) || 0,
+      ...(due ? { dueDate: due } : {}),
+      ...(place.trim() ? { place: place.trim() } : {}),
+    };
+    if (item) updateListItem(list.id, item.id, { ...payload, dueDate: due || undefined, place: place.trim() || undefined });
+    else addListItem(list.id, payload);
+    closeModal();
+  };
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>{item ? "Edit item" : "Add item"}</DialogTitle>
+        <DialogDescription>{list.name}</DialogDescription>
+      </DialogHeader>
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <Label className="label-xs">Item</Label>
+          <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Oat milk" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label className="label-xs">Quantity</Label>
+            <Input value={qty} onChange={(e) => setQty(e.target.value.replace(/[^0-9]/g, ""))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="label-xs">Est. price (each)</Label>
+            <Input value={price} onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ""))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="label-xs">Buy by (optional)</Label>
+            <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="label-xs">Place (optional)</Label>
+            <Input value={place} onChange={(e) => setPlace(e.target.value)} placeholder="e.g. Carrefour" />
+          </div>
+        </div>
+      </div>
+      <DialogFooter className="sm:justify-between">
+        {item ? (
+          <Button
+            variant="ghost"
+            className="text-negative"
+            onClick={() => {
+              deleteListItem(list.id, item.id);
+              closeModal();
+            }}
+          >
+            <Trash2 className="size-4" /> Delete
+          </Button>
+        ) : (
+          <span />
+        )}
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={closeModal}>
+            Cancel
+          </Button>
+          <Button disabled={!name.trim()} onClick={save}>
+            {item ? "Save changes" : "Add item"}
+          </Button>
+        </div>
+      </DialogFooter>
+    </>
+  );
+}
+
 export function ModalHost() {
   const { modal, closeModal } = useStore();
   return (
@@ -803,10 +1145,17 @@ export function ModalHost() {
         {modal.kind === "transaction" && (
           <TransactionModal type={modal.type} {...(modal.txId ? { txId: modal.txId } : {})} />
         )}
-        {modal.kind === "logHabit" && <LogHabitModal habitId={modal.habitId} />}
-        {modal.kind === "logMetric" && <LogMetricModal metricId={modal.metricId} />}
+        {modal.kind === "logHabit" && <LogHabitModal habitId={modal.habitId} pick={modal.pick ?? false} />}
+        {modal.kind === "logMetric" && (
+          <LogMetricModal metricId={modal.metricId} pick={modal.pick ?? false} />
+        )}
         {modal.kind === "newHabit" && <NewHabitModal />}
         {modal.kind === "newMetric" && <NewMetricModal />}
+        {modal.kind === "editHabit" && <EditHabitModal habitId={modal.habitId} />}
+        {modal.kind === "editMetric" && <EditMetricModal metricId={modal.metricId} />}
+        {modal.kind === "listItem" && (
+          <ListItemModal listId={modal.listId} {...(modal.itemId ? { itemId: modal.itemId } : {})} />
+        )}
       </DialogContent>
     </Dialog>
   );
