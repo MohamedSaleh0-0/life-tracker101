@@ -41,7 +41,7 @@ const tooltipStyle = {
 } as const;
 
 function MetricsPage() {
-  const { metrics, metricLogs, openModal } = useStore();
+  const { metrics, metricLogs, settings, openModal } = useStore();
 
   return (
     <div className="space-y-4">
@@ -80,7 +80,7 @@ function MetricsPage() {
               </Panel>
             );
           }
-          const series = metricSeries(m, metricLogs, 60);
+          const series = metricSeries(m, metricLogs, settings.metricTrendDays);
           const stats = metricStats(m, metricLogs);
           const fmt = (v: number) => (m.kind === "time" ? minutesToTime(v) : String(v));
           return (
@@ -89,7 +89,7 @@ function MetricsPage() {
               title={m.name}
               hint={
                 stats
-                  ? `latest ${formatMetricValue(m, stats.latest)} · avg ${fmt(stats.avg)} · range ${fmt(stats.min)}–${fmt(stats.max)}`
+                  ? `latest ${formatMetricValue(m, stats.latest)} · all-time average ${fmt(stats.avg)} · range ${fmt(stats.min)}–${fmt(stats.max)}`
                   : "No data yet"
               }
               bodyClassName="space-y-2"
@@ -114,7 +114,11 @@ function MetricsPage() {
                   />
                   <Tooltip
                     contentStyle={tooltipStyle}
-                    formatter={(v: number | string) => (typeof v === "number" ? fmt(v) : v)}
+                    labelFormatter={(l: string) => l}
+                    formatter={(v: number | string, key) => [
+                      typeof v === "number" ? fmt(v) : v,
+                      key === "avg" ? "7-day average" : m.name,
+                    ]}
                   />
                   <Line dataKey="value" stroke="var(--metric)" strokeWidth={2} dot={false} connectNulls />
                   <Line
@@ -127,9 +131,15 @@ function MetricsPage() {
                   />
                 </LineChart>
               </ResponsiveContainer>
-              <p className="text-[11px] text-muted-foreground">
-                Solid line: daily value. Dashed: 7-day rolling average.
-              </p>
+              <div className="flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-0.5 w-5 rounded-full bg-metric" /> Value logged that day
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-0.5 w-5 rounded-full bg-habit" /> 7-day rolling average — the mean
+                  of the last 7 logged days, smoothing daily noise
+                </span>
+              </div>
             </Panel>
           );
         })}

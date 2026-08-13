@@ -44,7 +44,7 @@ const tooltipStyle = {
 } as const;
 
 function HabitsPage() {
-  const { habits, habitLogs, openModal } = useStore();
+  const { habits, habitLogs, settings, openModal } = useStore();
   const [openId, setOpenId] = useState<string | null>(habits[0]?.id ?? null);
 
   return (
@@ -68,7 +68,7 @@ function HabitsPage() {
       <div className="space-y-4">
         {habits.map((h) => {
           const s = streak(h, habitLogs);
-          const weekly = weeklyCompletion(h, habitLogs, 12);
+          const weekly = weeklyCompletion(h, habitLogs, settings.heatmapWeeks);
           const values = habitValueSeries(h, habitLogs, 30);
           const open = openId === h.id;
           const color = accentVar(h.accent);
@@ -77,15 +77,24 @@ function HabitsPage() {
             <Panel
               key={h.id}
               title={h.name}
-              hint={`${s.current}d current streak · ${s.longest}d longest · ${avg}% 12-week average`}
+              hint={`${s.current}d current streak · ${s.longest}d longest · ${avg}% average completion over ${settings.heatmapWeeks} weeks`}
               action={
-                <Button variant="ghost" size="sm" onClick={() => setOpenId(open ? null : h.id)}>
-                  {open ? "Hide trends" : "Show trends"}
-                </Button>
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => openModal({ kind: "editHabit", habitId: h.id })}
+                  >
+                    Edit
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setOpenId(open ? null : h.id)}>
+                    {open ? "Hide trends" : "Show trends"}
+                  </Button>
+                </div>
               }
               bodyClassName="space-y-4"
             >
-              <ConsistencyGrid habit={h} />
+              <ConsistencyGrid habit={h} weeks={settings.heatmapWeeks} />
               {open && (
                 <div className="grid gap-4 xl:grid-cols-2">
                   <div>
