@@ -329,9 +329,17 @@ export const shoppingLists: ShoppingList[] = [
   {
     id: "list-groceries",
     name: "Weekly groceries",
+    accent: "finance",
     items: [
-      { id: "si-1", name: "Oat milk", qty: 2, estPrice: 3.4 },
-      { id: "si-2", name: "Chicken thighs", qty: 1, estPrice: 11.5 },
+      { id: "si-1", name: "Oat milk", qty: 2, estPrice: 3.4, place: "Carrefour" },
+      {
+        id: "si-2",
+        name: "Chicken thighs",
+        qty: 1,
+        estPrice: 11.5,
+        place: "Butcher",
+        dueDate: d(addDays(new Date(), 2)),
+      },
       { id: "si-3", name: "Spinach", qty: 1, estPrice: 2.9 },
       { id: "si-4", name: "Sourdough loaf", qty: 1, estPrice: 5.2 },
       { id: "si-5", name: "Greek yoghurt", qty: 2, estPrice: 4.1 },
@@ -356,8 +364,16 @@ export const shoppingLists: ShoppingList[] = [
   {
     id: "list-home",
     name: "Apartment fixes",
+    accent: "habit",
     items: [
-      { id: "si-8", name: "LED bulbs (4-pack)", qty: 1, estPrice: 12 },
+      {
+        id: "si-8",
+        name: "LED bulbs (4-pack)",
+        qty: 1,
+        estPrice: 12,
+        place: "Hardware store",
+        dueDate: d(addDays(new Date(), 6)),
+      },
       { id: "si-9", name: "Shower curtain", qty: 1, estPrice: 18 },
       { id: "si-10", name: "Picture hooks", qty: 3, estPrice: 2.5 },
       {
