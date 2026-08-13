@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { format, parseISO } from "date-fns";
 import { Check, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Ring, accentVar } from "./ui-bits";
@@ -133,15 +135,44 @@ export function ConsistencyGrid({ habit, weeks = 12 }: { habit: Habit; weeks?: n
   const color = accentVar(habit.accent);
   const columns: (typeof cells)[] = [];
   for (let i = 0; i < cells.length; i += 7) columns.push(cells.slice(i, i + 7));
+  const [hover, setHover] = useState<{ iso: string; state: string; x: number; y: number } | null>(
+    null,
+  );
+
+  const hoverLog = hover ? logFor(habitLogs, habit.id, hover.iso) : undefined;
+  const hoverText = !hover
+    ? ""
+    : hover.state === "future"
+      ? "upcoming"
+      : hover.state === "off"
+        ? "not scheduled"
+        : habit.kind === "bool"
+          ? hoverLog && hoverLog.value >= 1
+            ? "Done"
+            : "Missed"
+          : `${hoverLog?.value ?? 0} / ${habit.target ?? 0} ${habit.unit ?? ""}`.trim();
 
   return (
+    <div className="relative">
+      {hover && (
+        <div
+          className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full rounded-md border border-border bg-popover px-2 py-1.5 text-xs shadow-lg"
+          style={{ left: hover.x, top: hover.y - 6 }}
+        >
+          <div className="font-medium">{format(parseISO(hover.iso), "EEE d MMM yyyy")}</div>
+          <div className="num text-muted-foreground">{hoverText}</div>
+        </div>
+      )}
     <div className="flex gap-[3px] overflow-x-auto pb-1">
       {columns.map((col, ci) => (
         <div key={ci} className="flex flex-col gap-[3px]">
-          {col.map((c) => (
+          {col.map((c, ri) => (
             <span
               key={c.iso}
-              title={`${c.iso}${c.state === "off" ? " · not scheduled" : ""}`}
+              onMouseEnter={() =>
+                setHover({ iso: c.iso, state: c.state, x: ci * 14 + 5, y: ri * 14 })
+              }
+              onMouseLeave={() => setHover(null)}
               className="size-[11px] rounded-[2px]"
               style={{
                 background:
@@ -155,6 +186,7 @@ export function ConsistencyGrid({ habit, weeks = 12 }: { habit: Habit; weeks?: n
           ))}
         </div>
       ))}
+    </div>
     </div>
   );
 }
